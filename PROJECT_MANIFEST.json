@@ -1,0 +1,18 @@
+{
+  "project": "Structurally-Aware, Counterfactual-Robust Just-In-Time Defect Prediction",
+  "version": "0.2.0",
+  "status": "implemented",
+  "generated_from": "JIT_Defect_Prediction_Proposal.docx",
+  "components": [
+    "UnifiedDiffParser",
+    "tree-sitter AST Parser",
+    "DiffGraphBuilder",
+    "PyTorch Geometric GATv2",
+    "CounterfactualPerturber",
+    "TemperatureCalibrator",
+    "AttentionExplainer",
+    "FastAPI Service",
+    "React + Vite Dashboard"
+  ],
+  "note": "Complete research demonstrator and integrated pipeline implemented with 18 automated tests passing."
+}
