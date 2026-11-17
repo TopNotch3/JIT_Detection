@@ -5,11 +5,12 @@ import { fetchExperiments } from '../services/api';
 export default function ResearchBenchmarks() {
   const [experiments, setExperiments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchExperiments()
       .then((data) => setExperiments(data))
-      .catch((err) => console.error(err))
+      .catch((err) => setError(err.message || 'Failed to load benchmarks'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -50,6 +51,10 @@ export default function ResearchBenchmarks() {
           <div className="p-16 text-center text-zinc-400 text-xs">
             <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-400 animate-ping mr-3 align-middle"></span>
             Loading experiment benchmarks…
+          </div>
+        ) : error ? (
+          <div className="p-12 text-center text-amber-400/80 text-xs">
+            {error}
           </div>
         ) : (
           <div className="overflow-x-auto">

@@ -39,7 +39,7 @@ export default function App() {
     if (!selectedRepo) return;
     fetchRepositoryRisk(selectedRepo.id)
       .then((data) => setRiskData(data))
-      .catch((err) => console.error(err));
+      .catch(() => setRiskData(null));
   }, [selectedRepo]);
 
   const handleTabChange = (tabId) => {

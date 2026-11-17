@@ -6,9 +6,7 @@ import {
   Terminal,
   Activity,
   Layers,
-  Sparkles,
   RefreshCw,
-  Info,
 } from 'lucide-react';
 
 const NODE_COLORS = {
@@ -30,7 +28,6 @@ const EDGE_COLORS = {
 };
 
 export default function AstGraphViewer({ graph, selectedNodeId, onSelectNode }) {
-  const [filterType, setFilterType] = useState('all');
   const [activeNode, setActiveNode] = useState(null);
 
   const nodes = graph?.nodes || [];

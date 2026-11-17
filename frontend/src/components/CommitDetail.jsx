@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   Flame,
   AlertTriangle,
-  Layers,
   ArrowLeft,
   ArrowUpRight,
   Cpu,
@@ -37,7 +36,7 @@ export default function CommitDetail({ commitSha, onSelectCommit, onBack, select
     setListLoading(true);
     fetchCommits(50, selectedRepo?.id)
       .then((data) => setCommitsList(data || []))
-      .catch((err) => console.error(err))
+      .catch((err) => setError(err.message || 'Failed to load commits'))
       .finally(() => setListLoading(false));
   }, [commitSha, selectedRepo]);
 
