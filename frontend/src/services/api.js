@@ -18,8 +18,11 @@ export async function fetchRepositoryRisk(repoId) {
   return res.json();
 }
 
-export async function fetchCommits(limit = 50) {
-  const res = await fetch(`${API_BASE}/commits?limit=${limit}`);
+export async function fetchCommits(limit = 50, repoId = null) {
+  const url = repoId
+    ? `${API_BASE}/commits?limit=${limit}&repo_id=${repoId}`
+    : `${API_BASE}/commits?limit=${limit}`;
+  const res = await fetch(url);
   if (!res.ok) throw new Error('Failed to fetch commits');
   return res.json();
 }

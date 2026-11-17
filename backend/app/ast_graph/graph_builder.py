@@ -95,9 +95,18 @@ class DiffGraphBuilder:
                 hunk_start = hunk.new_start
                 hunk_end = hunk.new_start + max(1, hunk.new_length)
 
+                # When source_for_ast is reconstructed from diff hunks, element line numbers
+                # are relative (1-based from snippet). Align offset to hunk coordinates if needed.
+                offset = 0
+                if ast_elements and max(e.end_line for e in ast_elements) < hunk_start:
+                    offset = max(0, hunk_start - 1)
+
                 for ast_elem in ast_elements:
+                    elem_start = ast_elem.start_line + offset
+                    elem_end = ast_elem.end_line + offset
+
                     # Check overlap with hunk lines
-                    if not (ast_elem.end_line < hunk_start or ast_elem.start_line > hunk_end):
+                    if not (elem_end < hunk_start or elem_start > hunk_end):
                         elem_type = NodeType.STATEMENT
                         if ast_elem.kind == "function":
                             elem_type = NodeType.FUNCTION
@@ -115,8 +124,8 @@ class DiffGraphBuilder:
                             node_type=elem_type,
                             modification_type=hunk_mod,
                             file_path=file_path,
-                            start_line=ast_elem.start_line,
-                            end_line=ast_elem.end_line,
+                            start_line=elem_start,
+                            end_line=elem_end,
                             start_col=ast_elem.start_col,
                             end_col=ast_elem.end_col,
                             code_text=ast_elem.text

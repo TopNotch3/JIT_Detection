@@ -16,18 +16,18 @@ export default function App() {
   const [systemStatus, setSystemStatus] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Initialize data on mount
   useEffect(() => {
     async function init() {
       try {
-        const health = await fetchHealth().catch(() => ({ status: 'booting', calibrated_temperature: 1.38 }));
+        const health = await fetchHealth().catch(() => ({
+          status: 'booting',
+          calibrated_temperature: 1.38,
+        }));
         setSystemStatus(health);
 
         const repos = await fetchRepositories().catch(() => []);
         setRepositories(repos);
-        if (repos.length > 0) {
-          setSelectedRepo(repos[0]);
-        }
+        if (repos.length > 0) setSelectedRepo(repos[0]);
       } finally {
         setLoading(false);
       }
@@ -35,7 +35,6 @@ export default function App() {
     init();
   }, []);
 
-  // Fetch repository risk profile when selected repo changes
   useEffect(() => {
     if (!selectedRepo) return;
     fetchRepositoryRisk(selectedRepo.id)
@@ -43,62 +42,84 @@ export default function App() {
       .catch((err) => console.error(err));
   }, [selectedRepo]);
 
+  const handleTabChange = (tabId) => {
+    if (tabId === 'commits') {
+      setSelectedCommitSha(null);
+    }
+    setActiveTab(tabId);
+  };
+
   const handleSelectCommit = (sha) => {
     setSelectedCommitSha(sha);
     setActiveTab('commits');
   };
 
-  const handleCommitPredicted = (result) => {
+  const handleCommitPredicted = () => {
     if (selectedRepo) {
       fetchRepositoryRisk(selectedRepo.id).then((data) => setRiskData(data));
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--bg-primary)] text-[var(--text-primary)]">
+    <div className="min-h-screen flex flex-col bg-zinc-950 text-zinc-100 selection:bg-blue-500/30 selection:text-blue-200">
       <Header
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleTabChange}
         repositories={repositories}
         selectedRepo={selectedRepo}
         setSelectedRepo={setSelectedRepo}
         systemStatus={systemStatus}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6">
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-6 sm:px-8 py-8 sm:py-10">
         {loading ? (
-          <div className="glass-panel p-16 text-center text-[var(--text-muted)] font-mono animate-pulse-subtle">
-            Connecting to JIT-DP GNN pipeline & loading repository models...
+          <div className="rounded-2xl bg-zinc-900/60 border border-zinc-800 p-16 text-center shadow-lg">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-zinc-800/80 mb-4 border border-zinc-700/50">
+              <span className="w-4 h-4 rounded-full bg-blue-400 animate-ping"></span>
+            </div>
+            <p className="text-sm font-medium text-zinc-300">
+              Connecting to JIT-DP GNN pipeline &amp; loading repository models…
+            </p>
+            <p className="text-xs text-zinc-500 mt-1.5">
+              PyTorch Geometric GATv2 · tree-sitter AST parser
+            </p>
           </div>
         ) : (
           <>
             {activeTab === 'overview' && (
-              <RepoOverview
-                riskData={riskData}
-                onSelectCommit={handleSelectCommit}
-              />
+              <RepoOverview riskData={riskData} onSelectCommit={handleSelectCommit} />
             )}
-
             {activeTab === 'commits' && (
               <CommitDetail
-                commitSha={selectedCommitSha || (riskData?.recent_commits?.[0]?.sha ?? '')}
-                onBack={() => setActiveTab('overview')}
+                commitSha={selectedCommitSha}
+                onSelectCommit={(sha) => setSelectedCommitSha(sha)}
+                onBack={() => setSelectedCommitSha(null)}
+                selectedRepo={selectedRepo}
               />
             )}
-
             {activeTab === 'live' && (
               <LivePredictor onCommitPredicted={handleCommitPredicted} />
             )}
-
             {activeTab === 'lab' && <CounterfactualLab />}
-
             {activeTab === 'research' && <ResearchBenchmarks />}
           </>
         )}
       </main>
 
-      <footer className="border-t border-[var(--border-subtle)] bg-[var(--bg-secondary)] py-4 px-6 text-center text-xs text-[var(--text-muted)] font-mono">
-        Structurally-Aware, Counterfactual-Robust JIT-DP • PyTorch Geometric GATv2 • tree-sitter AST
+      {/* Global Footer */}
+      <footer className="border-t border-zinc-800/80 bg-zinc-950/80 backdrop-blur-sm py-6 px-6 sm:px-8 text-center text-xs text-zinc-500 mt-auto">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-zinc-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            <span>JIT Defect Prediction Demonstrator</span>
+            <span className="text-zinc-600">·</span>
+            <span className="text-zinc-500">v0.2.0</span>
+          </div>
+          <div className="text-zinc-500">
+            PyTorch Geometric GATv2 · tree-sitter AST Graph · Counterfactual Contrastive Regularization
+          </div>
+        </div>
       </footer>
     </div>
   );

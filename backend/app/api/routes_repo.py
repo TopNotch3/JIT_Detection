@@ -1,9 +1,10 @@
-from typing import List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Dict, Any, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.db.models import Repository, Commit, Prediction, CodeRegion, Counterfactual
 from app.api.schemas import RepositoryRiskResponse, CommitSummarySchema
+from app.ml.pipeline import pipeline_instance
 
 router = APIRouter(prefix="", tags=["Repositories & Commits"])
 
@@ -113,9 +114,12 @@ def get_repository_risk(repo_id: int, db: Session = Depends(get_db)):
     )
 
 @router.get("/commits")
-def list_commits(limit: int = 50, db: Session = Depends(get_db)):
-    """Lists commits across all repositories."""
-    commits = db.query(Commit).order_by(Commit.timestamp.desc()).limit(limit).all()
+def list_commits(limit: int = 50, repo_id: Optional[int] = None, db: Session = Depends(get_db)):
+    """Lists commits across all repositories or for a specific repository."""
+    query = db.query(Commit)
+    if repo_id:
+        query = query.filter_by(repository_id=repo_id)
+    commits = query.order_by(Commit.timestamp.desc()).limit(limit).all()
     out = []
     for c in commits:
         latest_pred = c.predictions[-1] if c.predictions else None
@@ -176,6 +180,22 @@ def get_commit_details(sha: str, db: Session = Depends(get_db)):
         for cf in commit_obj.counterfactuals
     ]
 
+    # Build structural AST Diff Graph
+    try:
+        parsed_diff = pipeline_instance.diff_parser.parse(commit_obj.diff_content)
+        diff_graph = pipeline_instance.graph_builder.build_graph(parsed_diff, commit_sha=commit_obj.sha)
+        for node in diff_graph.nodes:
+            matched_scores = [
+                r.evidence_score
+                for r in commit_obj.code_regions
+                if r.file_path == node.file_path and not (node.end_line < r.start_line or node.start_line > r.end_line)
+            ]
+            if matched_scores:
+                node.evidence_score = max(matched_scores)
+        diff_graph_dict = diff_graph.to_dict()
+    except Exception as e:
+        diff_graph_dict = {"nodes": [], "edges": [], "metadata": {"error": str(e)}}
+
     return {
         "id": commit_obj.id,
         "sha": commit_obj.sha,
@@ -196,5 +216,6 @@ def get_commit_details(sha: str, db: Session = Depends(get_db)):
             "created_at": latest_pred.created_at.isoformat() if latest_pred else None
         } if latest_pred else None,
         "code_regions": regions,
-        "counterfactuals": cfs
+        "counterfactuals": cfs,
+        "diff_graph": diff_graph_dict
     }
