@@ -34,7 +34,7 @@ export default function CommitDetail({ commitSha, onSelectCommit, onBack, select
   useEffect(() => {
     if (commitSha) return;
     setListLoading(true);
-    fetchCommits(50, selectedRepo?.id)
+    fetchCommits(50, selectedRepo?.id, selectedRepo)
       .then((data) => setCommitsList(data || []))
       .catch((err) => setError(err.message || 'Failed to load commits'))
       .finally(() => setListLoading(false));
@@ -48,7 +48,7 @@ export default function CommitDetail({ commitSha, onSelectCommit, onBack, select
     }
     setDetailLoading(true);
     setError(null);
-    fetchCommitDetail(commitSha)
+    fetchCommitDetail(commitSha, selectedRepo)
       .then((data) => {
         setCommit(data);
         if (data.code_regions && data.code_regions.length > 0) {
@@ -57,7 +57,7 @@ export default function CommitDetail({ commitSha, onSelectCommit, onBack, select
       })
       .catch((err) => setError(err.message))
       .finally(() => setDetailLoading(false));
-  }, [commitSha]);
+  }, [commitSha, selectedRepo]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // VIEW 1: Commit List View (when no commit is selected)

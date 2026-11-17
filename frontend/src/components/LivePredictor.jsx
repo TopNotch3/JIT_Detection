@@ -52,7 +52,7 @@ const SAMPLE_PRESETS = [
   }
 ];
 
-export default function LivePredictor({ onCommitPredicted }) {
+export default function LivePredictor({ onCommitPredicted, selectedRepo }) {
   const [diffText, setDiffText] = useState(SAMPLE_PRESETS[0].diff);
   const [message, setMessage] = useState(SAMPLE_PRESETS[0].message);
   const [loading, setLoading] = useState(false);
@@ -64,7 +64,7 @@ export default function LivePredictor({ onCommitPredicted }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await predictCommit(diffText, message, 'interactive_patch');
+      const res = await predictCommit(diffText, message, 'interactive_patch', selectedRepo?.id);
       setResult(res);
       if (onCommitPredicted) onCommitPredicted(res);
     } catch (err) {

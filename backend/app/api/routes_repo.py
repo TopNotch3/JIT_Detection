@@ -1,4 +1,5 @@
 from typing import List, Dict, Any, Optional
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.db.session import get_db
@@ -7,6 +8,47 @@ from app.api.schemas import RepositoryRiskResponse, CommitSummarySchema
 from app.ml.pipeline import pipeline_instance
 
 router = APIRouter(prefix="", tags=["Repositories & Commits"])
+
+class CreateRepoRequest(BaseModel):
+    owner: str
+    name: str
+    provider: Optional[str] = "github"
+    default_branch: Optional[str] = "main"
+
+@router.post("/repositories")
+def create_repository(req: CreateRepoRequest, db: Session = Depends(get_db)):
+    """Registers a new repository to monitor."""
+    existing = db.query(Repository).filter_by(owner=req.owner, name=req.name).first()
+    if existing:
+        return {
+            "id": existing.id,
+            "provider": existing.provider,
+            "owner": existing.owner,
+            "name": existing.name,
+            "full_name": f"{existing.owner}/{existing.name}",
+            "default_branch": existing.default_branch,
+            "commit_count": len(existing.commits)
+        }
+
+    new_repo = Repository(
+        provider=req.provider or "github",
+        external_id=f"repo_{req.owner}_{req.name}",
+        owner=req.owner,
+        name=req.name,
+        default_branch=req.default_branch or "main"
+    )
+    db.add(new_repo)
+    db.commit()
+    db.refresh(new_repo)
+    return {
+        "id": new_repo.id,
+        "provider": new_repo.provider,
+        "owner": new_repo.owner,
+        "name": new_repo.name,
+        "full_name": f"{new_repo.owner}/{new_repo.name}",
+        "default_branch": new_repo.default_branch,
+        "commit_count": 0
+    }
 
 @router.get("/repositories")
 def list_repositories(db: Session = Depends(get_db)):

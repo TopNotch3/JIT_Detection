@@ -94,3 +94,17 @@ def test_counterfactual_test_route():
     assert data["recipe"] == "polarity_invert"
     assert "risk_divergence" in data
     assert "surface_similarity" in data
+
+def test_create_repository():
+    payload = {
+        "owner": "pallets",
+        "name": "flask",
+        "provider": "github",
+        "default_branch": "main"
+    }
+    res = client.post("/repositories", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["owner"] == "pallets"
+    assert data["name"] == "flask"
+    assert data["full_name"] == "pallets/flask"

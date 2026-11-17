@@ -37,7 +37,8 @@ export default function App() {
 
   useEffect(() => {
     if (!selectedRepo) return;
-    fetchRepositoryRisk(selectedRepo.id)
+    setRiskData(null);
+    fetchRepositoryRisk(selectedRepo.id, selectedRepo)
       .then((data) => setRiskData(data))
       .catch(() => setRiskData(null));
   }, [selectedRepo]);
@@ -54,9 +55,26 @@ export default function App() {
     setActiveTab('commits');
   };
 
+  const handleAddRepo = (newRepo) => {
+    setRepositories((prev) => {
+      const exists = prev.some(
+        (r) => r.full_name?.toLowerCase() === newRepo.full_name?.toLowerCase()
+      );
+      if (exists) return prev;
+      const updated = [newRepo, ...prev];
+      try {
+        localStorage.setItem('jit_dp_monitored_repos', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+    setSelectedRepo(newRepo);
+  };
+
   const handleCommitPredicted = () => {
     if (selectedRepo) {
-      fetchRepositoryRisk(selectedRepo.id).then((data) => setRiskData(data));
+      fetchRepositoryRisk(selectedRepo.id, selectedRepo).then((data) => setRiskData(data));
     }
   };
 
@@ -68,6 +86,7 @@ export default function App() {
         repositories={repositories}
         selectedRepo={selectedRepo}
         setSelectedRepo={setSelectedRepo}
+        onAddRepo={handleAddRepo}
         systemStatus={systemStatus}
       />
 
@@ -99,7 +118,10 @@ export default function App() {
               />
             )}
             {activeTab === 'live' && (
-              <LivePredictor onCommitPredicted={handleCommitPredicted} />
+              <LivePredictor
+                onCommitPredicted={handleCommitPredicted}
+                selectedRepo={selectedRepo}
+              />
             )}
             {activeTab === 'lab' && <CounterfactualLab />}
             {activeTab === 'research' && <ResearchBenchmarks />}
