@@ -62,7 +62,63 @@ export default function LivePredictor({ onCommitPredicted, selectedRepo }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
-  // When selectedRepo changes, auto-load or offer a tailored commit from that repository
+  // Automatically synchronize with the active repository whenever selectedRepo changes
+  useEffect(() => {
+    if (!selectedRepo) return;
+    let isCancelled = false;
+
+    async function syncRepoCommit() {
+      setLoadingRepoCommit(true);
+      setError(null);
+      try {
+        const commits = await fetchCommits(5, selectedRepo.id, selectedRepo);
+        if (isCancelled) return;
+        if (commits && commits.length > 0) {
+          const detail = await fetchCommitDetail(commits[0].sha, selectedRepo);
+          if (isCancelled) return;
+          if (detail && detail.diff_content) {
+            setDiffText(detail.diff_content);
+            const commitMsg = detail.message || `Commit ${commits[0].sha.slice(0, 7)}`;
+            setMessage(commitMsg);
+
+            // Execute prediction automatically on the repository's real commit
+            setLoading(true);
+            try {
+              const res = await predictCommit(
+                detail.diff_content,
+                commitMsg,
+                detail.sha,
+                selectedRepo.id
+              );
+              if (!isCancelled) {
+                setResult(res);
+                if (onCommitPredicted) onCommitPredicted(res);
+              }
+            } catch (pErr) {
+              if (!isCancelled) setError(pErr.message);
+            } finally {
+              if (!isCancelled) setLoading(false);
+            }
+            return;
+          }
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          setError(err.message || `Failed to load commit from ${selectedRepo.name}`);
+        }
+      } finally {
+        if (!isCancelled) setLoadingRepoCommit(false);
+      }
+    }
+
+    syncRepoCommit();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedRepo]);
+
+  // Manual reload button for the active repository
   const handleLoadRepoCommit = async () => {
     if (!selectedRepo) return;
     setLoadingRepoCommit(true);
@@ -70,13 +126,20 @@ export default function LivePredictor({ onCommitPredicted, selectedRepo }) {
     try {
       const commits = await fetchCommits(5, selectedRepo.id, selectedRepo);
       if (commits && commits.length > 0) {
-        // Pick the first commit with real diff content
         const targetSha = commits[0].sha;
         const detail = await fetchCommitDetail(targetSha, selectedRepo);
         if (detail && detail.diff_content) {
           setDiffText(detail.diff_content);
-          setMessage(detail.message || `Commit ${targetSha.slice(0, 7)}`);
-          setResult(null);
+          const commitMsg = detail.message || `Commit ${targetSha.slice(0, 7)}`;
+          setMessage(commitMsg);
+          setLoading(true);
+          try {
+            const res = await predictCommit(detail.diff_content, commitMsg, targetSha, selectedRepo.id);
+            setResult(res);
+            if (onCommitPredicted) onCommitPredicted(res);
+          } finally {
+            setLoading(false);
+          }
           return;
         }
       }
@@ -94,6 +157,22 @@ export default function LivePredictor({ onCommitPredicted, selectedRepo }) {
     setError(null);
     try {
       const res = await predictCommit(diffText, message, 'interactive_patch', selectedRepo?.id);
+      setResult(res);
+      if (onCommitPredicted) onCommitPredicted(res);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectPreset = async (p) => {
+    setDiffText(p.diff);
+    setMessage(p.message);
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await predictCommit(p.diff, p.message, 'interactive_patch', selectedRepo?.id);
       setResult(res);
       if (onCommitPredicted) onCommitPredicted(res);
     } catch (err) {
@@ -148,11 +227,7 @@ export default function LivePredictor({ onCommitPredicted, selectedRepo }) {
           {DEFAULT_PRESETS.map((p, idx) => (
             <button
               key={idx}
-              onClick={() => {
-                setDiffText(p.diff);
-                setMessage(p.message);
-                setResult(null);
-              }}
+              onClick={() => handleSelectPreset(p)}
               className="bg-zinc-800/90 hover:bg-zinc-700 text-zinc-200 text-xs py-1.5 px-3 rounded-lg border border-zinc-700/60 transition-all cursor-pointer font-medium"
             >
               {p.name}

@@ -277,11 +277,9 @@ export function predictCommitLocally(diffText, commitMessage = '', commitSha = '
     if (isBoundRemoval) rawLogit += 0.38;
 
     // Asymmetry: deleting safety guards is high risk; adding safety guards lowers risk
-    if (removedChecks > addedChecks) {
-      rawLogit += (removedChecks - addedChecks) * 0.30;
-    } else if (addedChecks > removedChecks) {
-      rawLogit -= (addedChecks - removedChecks) * 0.18;
-    }
+    // Bounded with tanh to prevent numerical saturation on large diffs
+    const checkDiff = removedChecks - addedChecks;
+    rawLogit += Math.tanh(checkDiff / 4) * 0.95;
 
     // High deletion ratio in non-docs increases risk
     if (deletions > additions && deletions > 2) {

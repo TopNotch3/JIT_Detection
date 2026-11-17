@@ -27,6 +27,65 @@ export default function CounterfactualLab({ selectedRepo }) {
   const [testResult, setTestResult] = useState(null);
   const [error,      setError]      = useState(null);
 
+  // Automatically synchronize with the active repository whenever selectedRepo changes
+  useEffect(() => {
+    if (!selectedRepo) return;
+    let isCancelled = false;
+
+    async function syncRepoDiff() {
+      setLoadingRepo(true);
+      setError(null);
+      try {
+        const commits = await fetchCommits(5, selectedRepo.id, selectedRepo);
+        if (isCancelled) return;
+        if (commits && commits.length > 0) {
+          const detail = await fetchCommitDetail(commits[0].sha, selectedRepo);
+          if (isCancelled) return;
+          if (detail && detail.diff_content) {
+            setDiffText(detail.diff_content);
+            setLoading(true);
+            try {
+              const res = await testCounterfactual(detail.diff_content, recipe, 42);
+              if (!isCancelled) setTestResult(res);
+            } catch (tErr) {
+              if (!isCancelled) setError(tErr.message);
+            } finally {
+              if (!isCancelled) setLoading(false);
+            }
+            return;
+          }
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          setError(err.message || `Failed to load diff from ${selectedRepo.name}`);
+        }
+      } finally {
+        if (!isCancelled) setLoadingRepo(false);
+      }
+    }
+
+    syncRepoDiff();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedRepo]);
+
+  const handleRecipeChange = async (newRecipe) => {
+    setRecipe(newRecipe);
+    if (!diffText.trim()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await testCounterfactual(diffText, newRecipe, 42);
+      setTestResult(res);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleLoadRepoDiff = async () => {
     if (!selectedRepo) return;
     setLoadingRepo(true);
@@ -37,7 +96,13 @@ export default function CounterfactualLab({ selectedRepo }) {
         const detail = await fetchCommitDetail(commits[0].sha, selectedRepo);
         if (detail && detail.diff_content) {
           setDiffText(detail.diff_content);
-          setTestResult(null);
+          setLoading(true);
+          try {
+            const res = await testCounterfactual(detail.diff_content, recipe, 42);
+            setTestResult(res);
+          } finally {
+            setLoading(false);
+          }
           return;
         }
       }
@@ -110,7 +175,7 @@ export default function CounterfactualLab({ selectedRepo }) {
               {RECIPES.map((r) => (
                 <button
                   key={r.id}
-                  onClick={() => setRecipe(r.id)}
+                  onClick={() => handleRecipeChange(r.id)}
                   className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
                     recipe === r.id
                       ? 'bg-purple-600/15 border-purple-500/60 text-white shadow-sm'
