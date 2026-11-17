@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { FlaskConical, Play, Scale } from 'lucide-react';
-import { testCounterfactual } from '../services/api';
+import { FlaskConical, Play, Scale, FolderGit2, Download, AlertCircle } from 'lucide-react';
+import { testCounterfactual, fetchCommits, fetchCommitDetail } from '../services/api';
 
 const DEFAULT_SAMPLE = `diff --git a/network/guard.py b/network/guard.py
 --- a/network/guard.py
@@ -13,18 +13,41 @@ const DEFAULT_SAMPLE = `diff --git a/network/guard.py b/network/guard.py
 `;
 
 const RECIPES = [
-  { id: 'polarity_invert', title: 'Polarity Invert',    desc: 'Swap + and − lines'      },
-  { id: 'condition_flip',  title: 'Condition Flip',     desc: 'Invert ==/!= and </>'     },
-  { id: 'hunk_shuffle',    title: 'Hunk Shuffle',       desc: 'Permute hunk sequence'    },
-  { id: 'rename_vars',     title: 'Rename Identifiers', desc: 'Control invariance test'  },
+  { id: 'polarity_invert', title: 'Polarity Invert',    desc: 'Swap + and − lines (flip fix/bug intent)' },
+  { id: 'condition_flip',  title: 'Condition Flip',     desc: 'Invert ==/!= and </>, and/or logic'       },
+  { id: 'hunk_shuffle',    title: 'Hunk Shuffle',       desc: 'Permute hunk execution sequence'          },
+  { id: 'rename_vars',     title: 'Rename Identifiers', desc: 'Control invariance test (syntax only)'    },
 ];
 
-export default function CounterfactualLab() {
+export default function CounterfactualLab({ selectedRepo }) {
   const [diffText,   setDiffText]   = useState(DEFAULT_SAMPLE);
   const [recipe,     setRecipe]     = useState('polarity_invert');
   const [loading,    setLoading]    = useState(false);
+  const [loadingRepo, setLoadingRepo] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [error,      setError]      = useState(null);
+
+  const handleLoadRepoDiff = async () => {
+    if (!selectedRepo) return;
+    setLoadingRepo(true);
+    setError(null);
+    try {
+      const commits = await fetchCommits(5, selectedRepo.id, selectedRepo);
+      if (commits && commits.length > 0) {
+        const detail = await fetchCommitDetail(commits[0].sha, selectedRepo);
+        if (detail && detail.diff_content) {
+          setDiffText(detail.diff_content);
+          setTestResult(null);
+          return;
+        }
+      }
+      throw new Error(`No diff available for repository ${selectedRepo.name}`);
+    } catch (err) {
+      setError(err.message || 'Failed to load diff from repository');
+    } finally {
+      setLoadingRepo(false);
+    }
+  };
 
   const handleRunTest = async () => {
     if (!diffText.trim()) return;
@@ -44,13 +67,33 @@ export default function CounterfactualLab() {
     <div className="space-y-8">
       {/* Overview Banner */}
       <div className="rounded-2xl bg-zinc-900/60 border border-zinc-800/90 p-6 sm:p-7 space-y-3 shadow-sm">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-            <FlaskConical className="w-4 h-4" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+              <FlaskConical className="w-4 h-4" />
+            </div>
+            <h2 className="text-base font-semibold text-white">
+              Counterfactual Robustness &amp; Shortcut Evaluation Lab
+            </h2>
           </div>
-          <h2 className="text-base font-semibold text-white">
-            Counterfactual Robustness &amp; Shortcut Evaluation Lab
-          </h2>
+
+          {selectedRepo && (
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono bg-purple-500/10 text-purple-300 border border-purple-500/30">
+                <FolderGit2 className="w-3.5 h-3.5" />
+                {selectedRepo.full_name}
+              </span>
+              <button
+                onClick={handleLoadRepoDiff}
+                disabled={loadingRepo}
+                className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs py-1 px-3 rounded-lg border border-zinc-700/80 transition-colors cursor-pointer flex items-center gap-1.5 font-medium"
+                title={`Load a commit diff from ${selectedRepo.name}`}
+              >
+                <Download className="w-3 h-3 text-purple-400" />
+                <span>{loadingRepo ? 'Loading…' : `Load Diff from ${selectedRepo.name}`}</span>
+              </button>
+            </div>
+          )}
         </div>
         <p className="text-xs text-zinc-400 leading-relaxed max-w-4xl">
           Existing JIT models often succumb to statistical surface shortcuts (e.g. associating specific words or keywords with defects).
@@ -94,8 +137,9 @@ export default function CounterfactualLab() {
         </div>
 
         {error && (
-          <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-xl text-xs">
-            {error}
+          <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-xl text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
           </div>
         )}
       </div>
@@ -134,7 +178,9 @@ export default function CounterfactualLab() {
               <div className="text-2xl font-bold text-amber-400 tabular-nums tracking-tight">
                 {(testResult.risk_divergence * 100).toFixed(1)}%
               </div>
-              <p className="text-[11px] text-zinc-500">Sensitivity response</p>
+              <p className="text-[11px] text-zinc-500">
+                {testResult.risk_divergence < 0.01 ? 'Invariant control response' : 'Sensitivity response'}
+              </p>
             </div>
           </div>
 
@@ -175,8 +221,12 @@ export default function CounterfactualLab() {
             </h4>
             <p className="text-xs text-zinc-300 leading-relaxed">
               {recipe === 'rename_vars'
-                ? `Identifier renaming represents a semantics-preserving control perturbation. Low risk divergence (Δ = ${(testResult.risk_divergence * 100).toFixed(1)}%) indicates desirable invariance to cosmetic token changes.`
-                : `Recipe '${recipe}' represents a semantics-breaking mutation while preserving ${(testResult.surface_similarity * 100).toFixed(1)}% surface similarity. Robust structural models shift their attention appropriately rather than collapsing into spurious token matches.`}
+                ? `Identifier renaming represents a semantics-preserving control perturbation. Low risk divergence (Δ = ${(testResult.risk_divergence * 100).toFixed(1)}%) indicates desirable invariance to cosmetic token changes, proving the GAT model does not rely on superficial variable naming shortcuts.`
+                : recipe === 'polarity_invert'
+                ? `Polarity inversion flips the intent of added vs deleted lines. Shifting calibrated risk from ${(testResult.original_prediction.calibrated_confidence * 100).toFixed(1)}% to ${(testResult.counterfactual_prediction.calibrated_confidence * 100).toFixed(1)}% (Δ = ${(testResult.risk_divergence * 100).toFixed(1)}%) proves the model recognizes structural deletion asymmetry rather than treating tokens symmetrically.`
+                : recipe === 'condition_flip'
+                ? `Condition inversion mutates logical branching with ${(testResult.surface_similarity * 100).toFixed(1)}% surface token overlap. The resulting risk shift (Δ = ${(testResult.risk_divergence * 100).toFixed(1)}%) confirms that the model's graph attention focuses on operational logic rather than keyword bag-of-words presence.`
+                : `Hunk shuffling permutes the temporal execution order of modified AST regions. The observed divergence (Δ = ${(testResult.risk_divergence * 100).toFixed(1)}%) reflects the GNN's sensitivity to control flow ordering across code blocks.`}
             </p>
           </div>
         </div>

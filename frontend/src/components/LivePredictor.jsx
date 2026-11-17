@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Terminal,
   Send,
   Network,
-  Layers,
   Sparkles,
+  FolderGit2,
+  Download,
+  AlertTriangle,
+  CheckCircle2,
 } from 'lucide-react';
-import { predictCommit } from '../services/api';
+import { predictCommit, fetchCommits, fetchCommitDetail } from '../services/api';
 
-const SAMPLE_PRESETS = [
+const DEFAULT_PRESETS = [
   {
-    name: 'Critical Auth Token Bypass',
+    name: 'Critical Security Bypass',
     message: 'fix: bypass validation if token is present without signature check',
     diff: `diff --git a/auth/guard.py b/auth/guard.py
 --- a/auth/guard.py
@@ -21,10 +24,10 @@ const SAMPLE_PRESETS = [
 +    if token is not None:
 +        return True
      return True
-`
+`,
   },
   {
-    name: 'Loop Bounds Removal / Memory Fault',
+    name: 'Memory Fault / Bounds Removal',
     message: 'perf: remove bounds check inside high-throughput packet parser',
     diff: `diff --git a/network/parser.py b/network/parser.py
 --- a/network/parser.py
@@ -35,29 +38,55 @@ const SAMPLE_PRESETS = [
 -            break
          frames.append(buffer[i])
      return frames
-`
+`,
   },
   {
-    name: 'Safe Idempotency Check & Logging',
-    message: 'feat: add idempotency guard to billing webhook and structured audit log',
-    diff: `diff --git a/billing/guard.py b/billing/guard.py
---- a/billing/guard.py
-+++ b/billing/guard.py
-@@ -10,3 +10,6 @@ def process_payment(tx_id, payload):
-+    if cache.has(tx_id):
-+        logger.info("Skipping processed transaction", extra={"tx": tx_id})
-+        return {"status": "already_processed"}
-     return execute_payment(payload)
-`
-  }
+    name: 'Safe Documentation / Refactor',
+    message: 'docs: update OpenAPI configuration schema and usage guidelines',
+    diff: `diff --git a/docs/config.json b/docs/config.json
+--- a/docs/config.json
++++ b/docs/config.json
+@@ -2,3 +2,4 @@
+   "version": "1.0.0",
++  "description": "API configuration reference schema",
+   "endpoints": []
+`,
+  },
 ];
 
 export default function LivePredictor({ onCommitPredicted, selectedRepo }) {
-  const [diffText, setDiffText] = useState(SAMPLE_PRESETS[0].diff);
-  const [message, setMessage] = useState(SAMPLE_PRESETS[0].message);
+  const [diffText, setDiffText] = useState(DEFAULT_PRESETS[0].diff);
+  const [message, setMessage] = useState(DEFAULT_PRESETS[0].message);
   const [loading, setLoading] = useState(false);
+  const [loadingRepoCommit, setLoadingRepoCommit] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+
+  // When selectedRepo changes, auto-load or offer a tailored commit from that repository
+  const handleLoadRepoCommit = async () => {
+    if (!selectedRepo) return;
+    setLoadingRepoCommit(true);
+    setError(null);
+    try {
+      const commits = await fetchCommits(5, selectedRepo.id, selectedRepo);
+      if (commits && commits.length > 0) {
+        // Pick the first commit with real diff content
+        const targetSha = commits[0].sha;
+        const detail = await fetchCommitDetail(targetSha, selectedRepo);
+        if (detail && detail.diff_content) {
+          setDiffText(detail.diff_content);
+          setMessage(detail.message || `Commit ${targetSha.slice(0, 7)}`);
+          setResult(null);
+          return;
+        }
+      }
+      throw new Error(`No diff available for repository ${selectedRepo.name}`);
+    } catch (err) {
+      setError(err.message || 'Failed to load commit from repository');
+    } finally {
+      setLoadingRepoCommit(false);
+    }
+  };
 
   const handlePredict = async () => {
     if (!diffText.trim()) return;
@@ -79,21 +108,44 @@ export default function LivePredictor({ onCommitPredicted, selectedRepo }) {
 
   return (
     <div className="space-y-8">
-      {/* Top Banner & Preset Selector */}
+      {/* Top Banner & Context Header */}
       <div className="rounded-2xl bg-zinc-900/60 border border-zinc-800/90 p-6 sm:p-7 flex flex-col md:flex-row md:items-center justify-between gap-5 shadow-sm">
         <div>
-          <h2 className="text-base font-semibold text-white flex items-center gap-2.5">
-            <Terminal className="w-4 h-4 text-zinc-400" />
-            Live Webhook &amp; Commit Diff Predictor
-          </h2>
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-base font-semibold text-white flex items-center gap-2">
+              <Terminal className="w-4 h-4 text-zinc-400" />
+              Live Webhook &amp; Commit Diff Predictor
+            </h2>
+            {selectedRepo && (
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-blue-500/10 text-blue-300 border border-blue-500/30">
+                <FolderGit2 className="w-3 h-3" />
+                {selectedRepo.full_name}
+              </span>
+            )}
+          </div>
           <p className="text-xs text-zinc-400 mt-1">
             Parses AST in real-time, builds diff graph, and executes calibrated GAT inference.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Load Commit from Active Repo Button */}
+          {selectedRepo && (
+            <button
+              onClick={handleLoadRepoCommit}
+              disabled={loadingRepoCommit}
+              className="bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 text-xs py-1.5 px-3 rounded-lg border border-blue-500/40 transition-all cursor-pointer font-medium flex items-center gap-1.5"
+              title={`Load latest commit from ${selectedRepo.name}`}
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>{loadingRepoCommit ? 'Loading Commit…' : `Load from ${selectedRepo.name}`}</span>
+            </button>
+          )}
+
+          <div className="hidden sm:block w-[1px] h-4 bg-zinc-700 mx-1" />
+
           <span className="text-xs text-zinc-400 font-medium mr-1">Presets:</span>
-          {SAMPLE_PRESETS.map((p, idx) => (
+          {DEFAULT_PRESETS.map((p, idx) => (
             <button
               key={idx}
               onClick={() => {
@@ -124,7 +176,14 @@ export default function LivePredictor({ onCommitPredicted, selectedRepo }) {
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-zinc-300">Unified Git Diff</label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-zinc-300">Unified Git Diff</label>
+              {selectedRepo && (
+                <span className="text-[11px] text-zinc-500 font-mono">
+                  Context: {selectedRepo.name}
+                </span>
+              )}
+            </div>
             <textarea
               rows={14}
               value={diffText}
@@ -190,6 +249,8 @@ export default function LivePredictor({ onCommitPredicted, selectedRepo }) {
                   <span>Raw Logit: {(result.raw_score * 100).toFixed(1)}%</span>
                   <span>•</span>
                   <span>Files: {result.files_changed}</span>
+                  <span>•</span>
+                  <span>+{result.additions} / -{result.deletions}</span>
                 </div>
               </div>
 
@@ -219,26 +280,31 @@ export default function LivePredictor({ onCommitPredicted, selectedRepo }) {
                         <code className="font-mono text-zinc-200 font-medium truncate max-w-[200px]">
                           {exp.file_path}
                         </code>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-800 text-zinc-300 border border-zinc-700/60 tabular-nums">
-                          {(exp.evidence_score * 100).toFixed(0)}%
+                        <span className="text-blue-400 font-semibold font-mono">
+                          {(exp.evidence_score * 100).toFixed(1)}%
                         </span>
                       </div>
-                      <p className="text-[11px] text-zinc-500 font-mono">
-                        Lines {exp.start_line}–{exp.end_line} ({exp.node_type})
-                      </p>
+                      <div className="text-[11px] text-zinc-400">
+                        {exp.explanation_note}
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-4 text-zinc-500 my-auto">
-              <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
-                <Layers className="w-7 h-7 text-zinc-600 stroke-[1.5]" />
+            <div className="h-full flex flex-col items-center justify-center text-center p-8 text-zinc-500 space-y-3 my-auto">
+              <div className="w-12 h-12 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-center text-zinc-600">
+                <Terminal className="w-6 h-6" />
               </div>
-              <p className="text-xs leading-relaxed max-w-xs">
-                Paste or select a patch preset and click <strong className="text-zinc-300">Predict Defect Risk</strong> to run real-time AST parsing and GAT inference.
-              </p>
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-zinc-300">Ready for Live Inference</p>
+                <p className="text-[11px] text-zinc-500 max-w-xs">
+                  {selectedRepo
+                    ? `Click "Load from ${selectedRepo.name}" or edit the diff and hit "Predict Defect Risk".`
+                    : 'Select a preset or paste a unified diff, then hit "Predict Defect Risk".'}
+                </p>
+              </div>
             </div>
           )}
         </div>

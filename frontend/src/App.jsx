@@ -123,7 +123,7 @@ export default function App() {
                 selectedRepo={selectedRepo}
               />
             )}
-            {activeTab === 'lab' && <CounterfactualLab />}
+            {activeTab === 'lab' && <CounterfactualLab selectedRepo={selectedRepo} />}
             {activeTab === 'research' && <ResearchBenchmarks />}
           </>
         )}
