@@ -5,6 +5,7 @@ import CommitDetail from './components/CommitDetail';
 import LivePredictor from './components/LivePredictor';
 import CounterfactualLab from './components/CounterfactualLab';
 import ResearchBenchmarks from './components/ResearchBenchmarks';
+import ErrorBoundary from './components/ErrorBoundary';
 import { fetchHealth, fetchRepositories, fetchRepositoryRisk } from './services/api';
 
 export default function App() {
@@ -105,7 +106,7 @@ export default function App() {
             </p>
           </div>
         ) : (
-          <>
+          <ErrorBoundary key={activeTab}>
             {activeTab === 'overview' && (
               <RepoOverview riskData={riskData} onSelectCommit={handleSelectCommit} />
             )}
@@ -125,7 +126,7 @@ export default function App() {
             )}
             {activeTab === 'lab' && <CounterfactualLab selectedRepo={selectedRepo} />}
             {activeTab === 'research' && <ResearchBenchmarks />}
-          </>
+          </ErrorBoundary>
         )}
       </main>
 

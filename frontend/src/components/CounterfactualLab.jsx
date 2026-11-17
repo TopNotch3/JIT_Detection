@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FlaskConical, Play, Scale, FolderGit2, Download, AlertCircle } from 'lucide-react';
 import { testCounterfactual, fetchCommits, fetchCommitDetail } from '../services/api';
 
