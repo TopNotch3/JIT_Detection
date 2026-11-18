@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  ShieldCheck,
   GitBranch,
   Terminal,
   FlaskConical,
@@ -10,6 +9,7 @@ import {
   FolderGit2,
 } from 'lucide-react';
 import RepoSelectorModal from './RepoSelectorModal';
+import SagaLogo from './SagaLogo';
 
 const TABS = [
   { id: 'overview',  label: 'Overview',           icon: BarChart3    },
@@ -37,21 +37,16 @@ export default function Header({
           {/* ── Top Bar: Brand, Health, Repo Selector ── */}
           <div className="flex flex-col md:flex-row md:items-center justify-between py-4 gap-4 border-b border-zinc-800/50">
             {/* Brand */}
-            <div className="flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-indigo-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 shadow-sm shadow-blue-500/5 shrink-0">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <div>
+            <div className="flex items-center gap-3.5 min-w-0">
+              <SagaLogo className="w-11 h-11" iconSize="w-7 h-7" />
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-base font-semibold text-white tracking-tight leading-tight">
-                    JIT-Defect Radar
-                  </span>
-                  <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700/60">
-                    v0.2.0
+                  <span className="text-base sm:text-lg font-bold text-white tracking-tight leading-tight">
+                    SAGA-JIT
                   </span>
                 </div>
-                <p className="text-xs text-zinc-400 mt-0.5 font-normal">
-                  Structurally-Aware · Counterfactual-Robust Defect Intelligence
+                <p className="text-xs text-zinc-400 mt-0.5 font-normal leading-normal line-clamp-1 max-w-xl">
+                  Structurally-Aware Graph Attention and Counterfactual-Robust Training for Just-In-Time Defect Prediction
                 </p>
               </div>
             </div>

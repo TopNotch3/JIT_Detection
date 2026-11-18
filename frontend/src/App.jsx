@@ -135,9 +135,9 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-zinc-400">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-            <span>JIT Defect Prediction Demonstrator</span>
+            <span className="font-semibold text-zinc-300">SAGA-JIT</span>
             <span className="text-zinc-600">·</span>
-            <span className="text-zinc-500">v0.2.0</span>
+            <span className="text-zinc-500">Structurally-Aware Graph Attention &amp; Counterfactual Robustness</span>
           </div>
           <div className="text-zinc-500">
             PyTorch Geometric GATv2 · tree-sitter AST Graph · Counterfactual Contrastive Regularization
